@@ -1118,3 +1118,13 @@ def test_reauthenticate_logs_in_when_token_is_still_stale(tmp_path):
 
     assert state["login"] == 1
     assert client._token == "FRESH_TOKEN"
+
+
+def test_create_recipe_meal_flag(tmp_path):
+    """meal=True files the food as a saved meal; recipes default to False."""
+    client, state = _recipe_client(
+        tmp_path, [{"result": "SUCCESS", "id": 1}, {"result": "SUCCESS", "id": 2}]
+    )
+    client.create_recipe("Breakfast", ingredients=[(1000, 100.0)], meal=True)
+    client.create_recipe("Stew", ingredients=[(1000, 100.0)])
+    assert [p["data"]["meal"] for p in state["payloads"]] == [True, False]

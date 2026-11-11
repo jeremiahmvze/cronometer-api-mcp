@@ -588,7 +588,8 @@ def get_food_details(food_id: int) -> str:
     """Get detailed food information including nutrition and serving sizes.
 
     Use this after search_foods to get the full nutrient profile and
-    available measure_ids needed for add_food_entry.
+    available measure_ids needed for add_food_entry. For a recipe or saved
+    meal, "ingredients" lists each ingredient's food_id, name and grams.
 
     Args:
         food_id: Food ID from search_foods results.
@@ -610,16 +611,31 @@ def get_food_details(food_id: int) -> str:
                 }
             )
 
-        return _ok(
-            {
-                "food_id": data.get("id"),
-                "name": data.get("name"),
-                "default_measure_id": data.get("defaultMeasureId"),
-                "measures": measures,
-                "barcodes": data.get("barcodes", []),
-                "nutrients": data.get("nutrients", []),
+        result = {
+            "food_id": data.get("id"),
+            "name": data.get("name"),
+            "default_measure_id": data.get("defaultMeasureId"),
+            "measures": measures,
+            "barcodes": data.get("barcodes", []),
+            "nutrients": data.get("nutrients", []),
+        }
+        rows = data.get("ingredients") or []
+        if rows:
+            names = {
+                f.get("id"): f.get("name")
+                for f in client.get_foods([r.get("foodId") for r in rows])
             }
-        )
+            result["meal"] = bool(data.get("meal"))
+            result["ingredients"] = [
+                {
+                    "food_id": r.get("foodId"),
+                    "name": names.get(r.get("foodId")),
+                    "grams": r.get("grams"),
+                    "measure_id": r.get("measureId"),
+                }
+                for r in rows
+            ]
+        return _ok(result)
     except Exception as e:
         return _err(e)
 
@@ -857,8 +873,9 @@ def add_recipe(
     serving_name: str = "Serving",
     serving_grams: float | None = None,
     comments: str | None = None,
+    meal: bool = False,
 ) -> str:
-    """Create a recipe in Cronometer from other foods in the database.
+    """Create a recipe or saved meal in Cronometer from other foods in the database.
 
     Unlike add_custom_food, which takes hand-entered nutrition, a recipe
     references existing foods by ID and Cronometer derives the full nutrient
@@ -876,6 +893,9 @@ def add_recipe(
         serving_grams: Grams in one serving. Defaults to the full batch weight
             (one serving = the whole recipe).
         comments: Free-text recipe notes.
+        meal: True saves it as a saved meal (Cronometer's Meals list) instead
+            of a recipe. Use for a combo of foods eaten together; use a recipe
+            for a dish cooked from ingredients.
     """
     try:
         parsed = []
@@ -898,6 +918,7 @@ def add_recipe(
             serving_name=serving_name,
             serving_grams=serving_grams,
             comments=comments,
+            meal=meal,
         )
 
         # Fetch back to get the server-assigned measure_id
@@ -907,6 +928,7 @@ def add_recipe(
                 "food_id": result["food_id"],
                 "measure_id": food_data.get("defaultMeasureId"),
                 "name": name,
+                "meal": bool(food_data.get("meal")),
                 "total_grams": result["total_grams"],
                 "ingredient_count": result["ingredient_count"],
                 "note": "Use food_id and measure_id with add_food_entry to log this recipe.",

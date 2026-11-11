@@ -1100,6 +1100,7 @@ class CronometerClient:
         serving_name: str = "Serving",
         serving_grams: float | None = None,
         comments: str | None = None,
+        meal: bool = False,
     ) -> dict:
         """Create a recipe -- a food composed of other foods -- in Cronometer.
 
@@ -1127,6 +1128,8 @@ class CronometerClient:
             serving_grams: Grams in one serving. Defaults to the full batch
                 weight (i.e. one serving = the whole recipe).
             comments: Free-text recipe notes.
+            meal: Save as a "saved meal" instead of a recipe. Same food shape;
+                the server's `meal` flag is what files it under Meals.
 
         Returns {"food_id": int, "total_grams": float, "ingredient_count": int}.
         """
@@ -1235,6 +1238,7 @@ class CronometerClient:
                 "comments": comments,
                 "alternateId": None,
                 "ingredients": ingredient_rows,
+                "meal": meal,
                 "measures": measures,
                 "labelType": "AMERICAN_2016",
                 "nutrients": nutrients,
